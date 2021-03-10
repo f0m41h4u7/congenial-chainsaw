@@ -1,13 +1,28 @@
 #pragma once
 
+#include "rapidjson/document.h"
+
 #include "queue.hpp"
-#include "server.hpp"
+#include "server.cpp"
 
 #define DEFAULT_PORT 31337
 
 namespace mq
 {
-  template <typename T>
+  constexpr std::string_view ok_response = "OK\n";
+  constexpr std::string_view parse_error = "Error: failed to parse request\n";
+  
+  constexpr std::string_view method_str = "method";
+  constexpr std::string_view queue_str = "queue";
+  
+  enum class Method
+  {
+    QUEUE_DECLARE,
+    QUEUE_PURGE,
+    PUBLISH,
+    CONSUME
+  };
+  
   class router
   {
   public:
@@ -18,27 +33,39 @@ namespace mq
     {
       boost::asio::io_service svc;
       
-      net::server s(
+      net::Server s(
         DEFAULT_PORT,
         svc,
         [&](std::string_view req) -> std::string
         {
-          publish(std::forward<std::string>(req.data()));
-          std::cout << "received: " << req.data() << "\n";
-          return OK_RESPONSE;
+          //publish(std::forward<std::string>(req.data()));
+          return parse_request(req).data();
+          
+          //std::cout << "method: " << m_parser["method"].GetString() << "\n";
         }
       );
       
       svc.run();
     }
     
-    void publish(T&& data)
+    std::string_view parse_request(std::string_view req)
     {
-      std::unique_lock<std::mutex> mlock(m_mutex);
-      m_queue.push(std::forward<T>(data));
+      if (m_parser.Parse(req.data()).HasParseError())
+        return parse_error;
+      
+      if(!m_parser.HasMember(method_str.data()) || !m_parser.HasMember(queue_str.data()))
+        return parse_error;
+      
+      return ok_response;
     }
     
-    T receive()
+    void publish(std::string&& data)
+    {
+      std::unique_lock<std::mutex> mlock(m_mutex);
+      m_queue.push(std::forward<std::string>(data));
+    }
+    
+    std::string receive()
     {
       std::unique_lock<std::mutex> mlock(m_mutex);
       return m_queue.pop();
@@ -46,8 +73,8 @@ namespace mq
   
   private:
     std::mutex m_mutex;
-    cqueue<T> m_queue;
-    //std::unique_ptr<nett::server> m_server;
+    cqueue<std::string> m_queue;
+    rapidjson::Document m_parser;
   };
 
 } //namespace mq

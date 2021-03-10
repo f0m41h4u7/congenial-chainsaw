@@ -6,12 +6,7 @@
 #include <functional>
 #include <string_view>
 
-#include "parser.hpp"
-
 #define MAX_PACKET_SIZE 4096
-
-#define OK_RESPONSE "OK\n"
-#define OK_RESPONSE_SZ 3
 
 namespace mq 
 {
@@ -37,7 +32,7 @@ namespace mq
         m_handler(h)
       {}
       
-      void handle;
+      void handle();
       void send(std::string_view, std::size_t);
 
       tcp::socket m_socket;

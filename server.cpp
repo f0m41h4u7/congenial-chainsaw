@@ -13,15 +13,8 @@ namespace mq
             if (!ec)
             {
               auto res = m_handler(std::string{m_data, length});
-              if(proto::parse(res))
-              {
-                //connect request;
-              }
-              else
-              {
-                // check session; process data;
-              }
-              send(OK_RESPONSE, OK_RESPONSE_SZ);
+              //std::cout << res << "\n";
+              send(std::move(res), res.size());
             }
           });
     }
