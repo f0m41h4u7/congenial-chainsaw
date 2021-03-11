@@ -4,6 +4,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/shared_ptr.hpp>
 #include <functional>
+#include <string>
 #include <string_view>
 
 #define MAX_PACKET_SIZE 4096
@@ -14,7 +15,7 @@ namespace mq
   {
     using boost::asio::ip::tcp;
     
-    using handler_t = std::function<std::string(std::string_view)>;
+    using handler_t = std::function<std::string_view(std::string_view)>;
     
     class Conn : public boost::enable_shared_from_this<Conn>
     {
@@ -33,7 +34,7 @@ namespace mq
       {}
       
       void handle();
-      void send(std::string_view, std::size_t);
+      void send(std::string_view);
 
       tcp::socket m_socket;
       char        m_data[MAX_PACKET_SIZE];

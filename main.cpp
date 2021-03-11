@@ -19,7 +19,7 @@ int main()
   try
   {
     //signal(SIGINT, handler);
-    mq::router p;
+    mq::Router p;
     p.run();
     
   /*  auto publisher = [&](){

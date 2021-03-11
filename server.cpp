@@ -13,17 +13,16 @@ namespace mq
             if (!ec)
             {
               auto res = m_handler(std::string{m_data, length});
-              //std::cout << res << "\n";
-              send(std::move(res), res.size());
+              send(res);
             }
           });
     }
     
-    void Conn::send(std::string_view sv, std::size_t length)
+    void Conn::send(std::string_view sv)
     {
       auto self(shared_from_this());
       boost::asio::async_write(m_socket,
-                              boost::asio::buffer(sv.data(), length),
+                              boost::asio::buffer(sv.data(), sv.size()), // ?
                               [this, self](boost::system::error_code ec, std::size_t)
                               {
                                 if (!ec) handle();
