@@ -1,7 +1,7 @@
 #pragma once
 
 #include <map>
-#include <tao/json.hpp>
+#include "rapidjson/document.h"
 
 #include "queue.hpp"
 #include "server.cpp"
@@ -25,46 +25,17 @@ namespace mq
     CONSUME
   };
   
-  const std::map<std::string, Method> g_methods;
+  //const std::map<std::string, Method> g_methods;
   
   struct Request
   {
+    Request() = default;
+    ~Request() = default;
+    
     std::string method;
     std::string queue;
     std::string_view response;
  //   std::string data;
-  };
-  
-  template<>
-  struct my_traits< Request >
-  {
-    template< template< typename... > class Traits >
-    static void to( const tao::json::basic_value< Traits >& v, Request& d )
-    {
-        const auto& object = v.get_object();
-        d.method = v.at( method_str ).template as< std::string >();
-        d.queue = v.at( queue_str ).template as< std::string >();
-    }
-
-    template< template< typename... > class Traits >
-    static Request as( const tao::json::basic_value< Traits >& v )
-    {
-        Request result;
-        const auto& object = v.get_object();
-        result.method = v.at( method_str ).template as< std::string >();
-        result.queue = v.at( queue_str ).template as< std::string >();
-        return result;
-    }
-    
-    template< template< typename... > class Traits >
-    static void assign( tao::json::basic_value< Traits >& v, const Request& r )
-    {
-        v = {
-          { method_str, r.method },
-          { queue_str, r.queue }//,
-          //{ data_str, r.data }
-        };
-    }
   };
   
   class Router
@@ -80,41 +51,33 @@ namespace mq
       net::Server s(
         DEFAULT_PORT,
         svc,
-        [&](std::string_view req) -> std::string_view
+        [&](std::string_view req) -> std::string
         {
-          //publish(std::forward<std::string>(req.data()));
-          return parseAndValidate(req).response;
-          
-          //std::cout << "method: " << m_parser["method"].GetString() << "\n";
+          return parseAndValidate(req).method;
         }
       );
       
       svc.run();
     }
 
-    Request parseAndValidate(std::string_view req_data) const
+    Request parseAndValidate(std::string_view req_sv)
     {
       Request req;
-      try
-      {
-        auto v = tao::json::from_string(req_data);
-        Request req = v.as< Request >();
-        req.response = ok_response;
-      }
-      catch (std::exception& ex)
+      if (m_parser.Parse(req_sv.data()).HasParseError())
       {
         req.response = parse_error;
         return req;
       }
       
-  /*    if (m_parser.Parse(req.data()).HasParseError())
-        return parse_error;
-      
       if(!m_parser.HasMember(method_str.data()) || !m_parser.HasMember(queue_str.data()))
-        return format_error;
+      {
+        req.response = parse_error;
+        return req;
+      }
       
-      if(m_parser[])*/
-      
+      req.method = m_parser[method_str.data()].GetString();
+      req.queue = m_parser[queue_str.data()].GetString();
+      req.response = ok_response;
       return req;
     }
     
@@ -133,7 +96,7 @@ namespace mq
   private:
     std::mutex m_mutex;
     cqueue<std::string> m_queue;
-   // rapidjson::Document m_parser;
+    rapidjson::Document m_parser;
   };
 
 } //namespace mq

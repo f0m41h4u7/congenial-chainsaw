@@ -15,7 +15,7 @@ namespace mq
   {
     using boost::asio::ip::tcp;
     
-    using handler_t = std::function<std::string_view(std::string_view)>;
+    using handler_t = std::function<std::string(std::string_view)>;
     
     class Conn : public boost::enable_shared_from_this<Conn>
     {
