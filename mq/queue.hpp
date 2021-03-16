@@ -5,10 +5,10 @@
 #include <mutex>
 #include <queue>
 
-#define BUFFER_SIZE 1024
-
 namespace mq
 {
+  const int BUFFER_SIZE = 1024;
+  
   class Queue : public boost::intrusive::list_base_hook<>
   {
   public:
@@ -79,6 +79,9 @@ namespace mq
       }
     }
     ~QueueStorage() = default;
+    
+    QueueStorage(const QueueStorage&) = delete;
+    QueueStorage& operator=(const QueueStorage&) = delete;
     
     Queue* acquire_queue()
     {

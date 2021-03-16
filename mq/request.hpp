@@ -68,7 +68,6 @@ namespace mq
     Method      m_method;
     std::string m_queue;
     std::string m_data;
-    ErrorCode   m_err{ErrorCode::OK};
     
   private:
     rapidjson::Document m_parser;

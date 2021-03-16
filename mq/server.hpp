@@ -20,7 +20,9 @@ namespace mq
   public:
     using pointer = std::shared_ptr<Conn>;
 
-    static pointer create(tcp::socket socket, handler_t h, exchange_deleter_t d) { return pointer(new Conn(std::move(socket), h, d)); }
+    static pointer create(tcp::socket socket, handler_t h, exchange_deleter_t d)
+    { return pointer(new Conn(std::move(socket), h, d)); }
+    
     ~Conn()
     {
       std::cout << __FUNCTION__ << " " << m_exch.use_count() << "\n";
