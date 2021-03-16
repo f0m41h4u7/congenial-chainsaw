@@ -1,0 +1,13 @@
+name: CI
+on: [push]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Build docker
+        run: docker build -t cpp .
+      - name: Run docker
+        run: docker run cpp

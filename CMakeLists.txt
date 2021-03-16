@@ -4,7 +4,7 @@ project(mq VERSION 0.0.1)
 
 find_package(Boost 1.54.0 REQUIRED system)
 
-add_executable(mq main.cpp)
+add_executable(mq mq.cpp)
 
 set_target_properties(mq PROPERTIES
     CXX_STANDARD 20
