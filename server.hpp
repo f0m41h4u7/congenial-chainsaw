@@ -1,8 +1,6 @@
 #pragma once
 
 #include <boost/asio.hpp>
-#include <boost/enable_shared_from_this.hpp>
-#include <boost/shared_ptr.hpp>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -15,27 +13,32 @@ namespace mq
   
   class Conn;
   
-  using handler_t = std::function<std::string(std::string_view, boost::shared_ptr<Conn>)>;
+  using handler_t          = std::function<std::string(std::string_view, std::shared_ptr<Conn>)>;
+  using exchange_deleter_t = std::function<void(const std::string&)>;
   
-  class Conn : public boost::enable_shared_from_this<Conn>
+  class Conn : public std::enable_shared_from_this<Conn>
   {
   public:
-    using pointer = boost::shared_ptr<Conn>;
+    using pointer = std::shared_ptr<Conn>;
 
-    static pointer create(tcp::socket socket, handler_t h) { return pointer(new Conn(std::move(socket), h)); }
-    ~Conn() { std::cout << __FUNCTION__ << "\n";};
+    static pointer create(tcp::socket socket, handler_t h, exchange_deleter_t d) { return pointer(new Conn(std::move(socket), h, d)); }
+    ~Conn()
+    {
+      std::cout << __FUNCTION__ << " " << m_exch.use_count() << "\n";
+      if(m_exch.use_count() == 2)
+        m_exch_deleter(m_exch->name());
+    };
 
     void receive() { handle(); }
     
-    //void set_exchange(std::shared_ptr<Exchange> exch) { std::cout << __FUNCTION__ << "\n"; m_exch = exch; }
-    //std::shared_ptr<Exchange> get_exchange() { std::cout << __FUNCTION__ << "\n"; return m_exch; }
-    
-    std::shared_ptr<Exchange> m_exch;
+    void set_exchange(std::shared_ptr<Exchange> exch) { m_exch = exch; }
+    std::shared_ptr<Exchange> get_exchange() { return m_exch; }
 
   private:
-    Conn(tcp::socket socket, handler_t h)
+    Conn(tcp::socket socket, handler_t h, exchange_deleter_t d)
     : m_socket(std::move(socket)),
-      m_handler(h)
+      m_handler(h),
+      m_exch_deleter(d)
     {}
     
     void handle()
@@ -63,17 +66,20 @@ namespace mq
                               });
     }
 
-    tcp::socket m_socket;
-    char        m_data[MAX_PACKET_SIZE];
-    handler_t   m_handler;
+    tcp::socket               m_socket;
+    char                      m_data[MAX_PACKET_SIZE];
+    handler_t                 m_handler;
+    exchange_deleter_t        m_exch_deleter;
+    std::shared_ptr<Exchange> m_exch;
   };
     
   class Server
   {
   public:
-    Server(short unsigned int port, boost::asio::io_service& svc, handler_t handler)
+    Server(short unsigned int port, boost::asio::io_service& svc, handler_t h, exchange_deleter_t d)
     : m_acceptor(svc, tcp::endpoint(tcp::v4(), port)),
-      m_handler(handler)
+      m_handler(h),
+      m_exch_deleter(d)
     {
       listenAndServe();
     }
@@ -87,7 +93,7 @@ namespace mq
         {
           if (!ec)
           {
-            auto conn = Conn::create(std::move(socket), m_handler);
+            auto conn = Conn::create(std::move(socket), m_handler, m_exch_deleter);
             conn->receive();
           }
           listenAndServe();
@@ -99,6 +105,7 @@ namespace mq
     boost::asio::io_service m_svc;
     tcp::acceptor           m_acceptor;
     handler_t               m_handler;
+    exchange_deleter_t      m_exch_deleter;
   };
 
 } // namespace mq;

@@ -6,12 +6,12 @@
 namespace mq
 {
   const char* method_str("method");
-  const char* queue_str("queue");
-  const char* data_str("data");
+  const char* queue_str ("queue");
+  const char* data_str  ("data");
   
   const std::string method_queue_connect = "QUEUE_CONNECT";
-  const std::string method_publish = "PUBLISH";
-  const std::string method_consume = "CONSUME";
+  const std::string method_publish       = "PUBLISH";
+  const std::string method_consume       = "CONSUME";
   
   enum class Method
   {
@@ -29,7 +29,6 @@ namespace mq
     
     ErrorCode parseAndValidate(std::string_view req_sv)
     {
-      //std::cout << __FUNCTION__ << "\n";
       if (m_parser.Parse(req_sv.data()).HasParseError())
         return ErrorCode::ERROR;
       if(!m_parser.HasMember(method_str) || !m_parser.HasMember(queue_str))
@@ -38,10 +37,7 @@ namespace mq
       auto method = m_parser[method_str].GetString();
       
       if(method == method_queue_connect)
-      {
-        //std::cout << "method connect\n";
         m_method = Method::QUEUE_CONNECT;
-      }
       
       /*else if(method == method_publish)
       {
@@ -63,10 +59,10 @@ namespace mq
     }
     
     
-    Method m_method;
+    Method      m_method;
     std::string m_queue;
     std::string m_data;
-    ErrorCode m_err{ErrorCode::OK};
+    ErrorCode   m_err{ErrorCode::OK};
     
   private:
     rapidjson::Document m_parser;

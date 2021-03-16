@@ -9,9 +9,7 @@
 
 namespace mq
 {
-  using auto_unlink_hook = boost::intrusive::list_base_hook<>;
-
-  class Queue : public auto_unlink_hook
+  class Queue : public boost::intrusive::list_base_hook<>
   {
   public:
     Queue() = default;
@@ -19,9 +17,6 @@ namespace mq
 
     Queue(const Queue&) = delete;
     Queue& operator=(const Queue&) = delete;
-    
- /*   void unlink()     { auto_unlink_hook::unlink(); }
-    bool is_linked()  { return auto_unlink_hook::is_linked(); }*/
 
     void pop(std::string& item)
     {
@@ -65,11 +60,9 @@ namespace mq
     void unlink() { std::cout << __FUNCTION__ << "\n"; m_is_linked = false; }
 
   private:
-    bool m_is_linked{false};
-    
+    bool                    m_is_linked{false};
     std::queue<std::string> m_queue;
-
-    std::mutex m_mutex;
+    std::mutex              m_mutex;
     std::condition_variable m_cv;
   };
   
