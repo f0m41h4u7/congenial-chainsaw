@@ -1,10 +1,8 @@
 #pragma once
 
-#include <map>
-#include "rapidjson/document.h"
-
-#include "queue.hpp"
-#include "server.cpp"
+#include "exchange.hpp"
+#include "request.hpp"
+#include "server.hpp"
 
 #define DEFAULT_PORT 31337
 
@@ -12,31 +10,7 @@ namespace mq
 {
   constexpr std::string_view ok_response = "OK\n";
   constexpr std::string_view parse_error = "Error: failed to parse request\n";
-  
-  constexpr std::string_view method_str = "method";
-  constexpr std::string_view queue_str = "queue";
-  constexpr std::string_view data_str = "data";
-  
-  enum class Method
-  {
-    QUEUE_DECLARE,
-    QUEUE_PURGE,
-    PUBLISH,
-    CONSUME
-  };
-  
-  //const std::map<std::string, Method> g_methods;
-  
-  struct Request
-  {
-    Request() = default;
-    ~Request() = default;
-    
-    std::string method;
-    std::string queue;
-    std::string_view response;
- //   std::string data;
-  };
+  constexpr std::string_view queue_error = "Error: queue is already used\n";
   
   class Router
   {
@@ -44,59 +18,65 @@ namespace mq
     Router() = default;
     ~Router() = default;
     
+    std::shared_ptr<Exchange> queue_connect(std::string& name)
+    {
+      std::cout << __FUNCTION__ << " " << m_exchanges.size() << "\n";
+      
+      std::unique_lock<std::mutex> mlock(m_mutex);
+      if(m_exchanges.find(name) != m_exchanges.end())
+      {
+        std::cout << "EXISTS\n";
+        auto exch = m_exchanges.at(name);
+        mlock.unlock();
+        return exch;
+      }
+      auto exch = std::make_shared<Exchange>(name, std::move(m_queueStorage.acquire_queue()));
+      m_exchanges[name] = exch;
+      return exch;
+    }
+    
     void run()
     {
       boost::asio::io_service svc;
       
-      net::Server s(
+      Server s(
         DEFAULT_PORT,
         svc,
-        [&](std::string_view req) -> std::string
+        [&](std::string_view data, boost::shared_ptr<Conn> conn) -> std::string
         {
-          return parseAndValidate(req).method;
+          Request req;
+          auto err = req.parseAndValidate(data);
+          if(err == ErrorCode::ERROR)
+            return parse_error.data();
+          
+          switch(req.m_method)
+          {
+            case Method::QUEUE_CONNECT:
+            {
+              conn->m_exch = queue_connect(req.m_queue);
+              return ok_response.data();
+            }
+            /*case Method::PUBLISH:
+            {
+              if(conn->m_exch->name() == req.m_queue)
+              //conn->get_exchange()->publish(req.m_data);
+              std::cout << "published\n";
+              return ok_response.data();
+            }*/
+            default:
+              return ok_response.data();
+          }
         }
       );
       
       svc.run();
     }
-
-    Request parseAndValidate(std::string_view req_sv)
-    {
-      Request req;
-      if (m_parser.Parse(req_sv.data()).HasParseError())
-      {
-        req.response = parse_error;
-        return req;
-      }
-      
-      if(!m_parser.HasMember(method_str.data()) || !m_parser.HasMember(queue_str.data()))
-      {
-        req.response = parse_error;
-        return req;
-      }
-      
-      req.method = m_parser[method_str.data()].GetString();
-      req.queue = m_parser[queue_str.data()].GetString();
-      req.response = ok_response;
-      return req;
-    }
-    
-    void publish(std::string&& data)
-    {
-      std::unique_lock<std::mutex> mlock(m_mutex);
-      m_queue.push(std::forward<std::string>(data));
-    }
-    
-    std::string receive()
-    {
-      std::unique_lock<std::mutex> mlock(m_mutex);
-      return m_queue.pop();
-    }
   
   private:
     std::mutex m_mutex;
-    cqueue<std::string> m_queue;
-    rapidjson::Document m_parser;
+    QueueStorage<5> m_queueStorage;
+    //std::map<std::string, std::shared_ptr<Exchange>> m_exchanges;
+    exchanges_map_t m_exchanges;
   };
 
 } //namespace mq

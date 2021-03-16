@@ -1,22 +1,29 @@
 #pragma once
 
+#include <boost/intrusive/list.hpp>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
 
+#define BUFFER_SIZE 1024
+
 namespace mq
 {
-  template <typename T, std::size_t BUFFER_SIZE=1024>
-  class cqueue
+  using auto_unlink_hook = boost::intrusive::list_base_hook<>;
+
+  class Queue : public auto_unlink_hook
   {
   public:
-    cqueue() = default;
-    ~cqueue() = default;
+    Queue() = default;
+    ~Queue() = default;
 
-    cqueue(const cqueue&) = delete;
-    cqueue& operator=(const cqueue&) = delete;
+    Queue(const Queue&) = delete;
+    Queue& operator=(const Queue&) = delete;
+    
+ /*   void unlink()     { auto_unlink_hook::unlink(); }
+    bool is_linked()  { return auto_unlink_hook::is_linked(); }*/
 
-    void pop(T& item)
+    void pop(std::string& item)
     {
       std::unique_lock<std::mutex> mlock(m_mutex);
       while (m_queue.empty())
@@ -28,8 +35,9 @@ namespace mq
       m_cv.notify_one();                      
     }
 
-    void push(const T& item)
+    void push(const std::string& item)
     {
+      std::cout << "QUEUE: " << item << "\n";
       std::unique_lock<std::mutex> mlock(m_mutex);
       while (m_queue.size() >= BUFFER_SIZE)
         m_cv.wait(mlock);      
@@ -38,7 +46,7 @@ namespace mq
       m_cv.notify_one();                  
     }
 
-    T pop()
+    std::string pop()
     {
       std::unique_lock<std::mutex> mlock(m_mutex);
       while (m_queue.empty())
@@ -51,11 +59,50 @@ namespace mq
 
       return val;
     }
+    
+    bool is_linked() { return m_is_linked; }
+    void link() { std::cout << __FUNCTION__ << "\n"; m_is_linked = true; }
+    void unlink() { std::cout << __FUNCTION__ << "\n"; m_is_linked = false; }
 
   private:
-    std::queue<T> m_queue;
+    bool m_is_linked{false};
+    
+    std::queue<std::string> m_queue;
 
     std::mutex m_mutex;
     std::condition_variable m_cv;
   };
-} // namespace
+  
+  template<std::size_t SIZE=10>
+  class QueueStorage
+  {
+  public:
+    QueueStorage()
+    {
+      std::cout << __FUNCTION__ << "\n";
+      for(std::size_t i = 0; i < SIZE; ++i)
+      {
+        auto q = new Queue();
+        m_queues.push_back(*q);
+      }
+    }
+    ~QueueStorage() = default;
+    
+    Queue* acquire_queue()
+    {
+      std::cout << __FUNCTION__ << "\n";
+      for(auto& q : m_queues)
+        if(!q.is_linked())
+          return &q;
+      auto q = new Queue();
+      m_queues.push_back(*q);
+      return q;
+    }
+    
+  private:
+    boost::intrusive::list<
+      Queue
+    > m_queues;
+  };
+  
+} // namespace mq
