@@ -2,14 +2,13 @@
 
 #include <boost/asio.hpp>
 #include <functional>
-#include <string>
 #include <string_view>
-
-#define MAX_PACKET_SIZE 4096
 
 namespace mq 
 {
   using boost::asio::ip::tcp;
+  
+  const short unsigned int MAX_PACKET_SIZE = 4096;
   
   class Conn;
   
@@ -25,7 +24,7 @@ namespace mq
     ~Conn()
     {
       std::cout << __FUNCTION__ << " " << m_exch.use_count() << "\n";
-      if(m_exch.use_count() == 2)
+      if(m_exch.use_count() <= 2)
         m_exch_deleter(m_exch->name());
     };
 

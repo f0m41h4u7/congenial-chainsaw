@@ -9,13 +9,13 @@ namespace mq
   const char* queue_str ("queue");
   const char* data_str  ("data");
   
-  const std::string method_queue_connect = "QUEUE_CONNECT";
-  const std::string method_publish       = "PUBLISH";
-  const std::string method_consume       = "CONSUME";
+  const std::string method_connect = "CONNECT";
+  const std::string method_publish = "PUBLISH";
+  const std::string method_consume = "CONSUME";
   
   enum class Method
   {
-    QUEUE_CONNECT,
+    CONNECT,
     PUBLISH,
     CONSUME
   };
@@ -31,33 +31,39 @@ namespace mq
     {
       if (m_parser.Parse(req_sv.data()).HasParseError())
         return ErrorCode::ERROR;
-      if(!m_parser.HasMember(method_str) || !m_parser.HasMember(queue_str))
+
+      if(!m_parser.HasMember(method_str))
         return ErrorCode::ERROR;
-      
+
       auto method = m_parser[method_str].GetString();
       
-      if(method == method_queue_connect)
-        m_method = Method::QUEUE_CONNECT;
-      
-      /*else if(method == method_publish)
+      if(method == method_connect)
       {
-        std::cout << "method publish\n";
+        if(!m_parser.HasMember(queue_str))
+          return ErrorCode::ERROR;
+        
+        m_method = Method::CONNECT;
+        m_queue = m_parser[queue_str].GetString();
+        return ErrorCode::OK;
+      }
+
+      if(method == method_publish)
+      {
         if(!m_parser.HasMember(data_str))
           return ErrorCode::ERROR;
-        std::cout << "method publish no error\n";
         m_method = Method::PUBLISH;
         m_data = m_parser[data_str].GetString();
+        return ErrorCode::OK;
       }
       
-      else if(method == method_consume)
-          m_method = Method::CONSUME;*/
+      if(method == method_consume)
+      {
+        m_method = Method::CONSUME;
+        return ErrorCode::OK;
+      }
       
-      else return ErrorCode::ERROR;
-      
-      m_queue = m_parser[queue_str].GetString();
-      return ErrorCode::OK;
+      return ErrorCode::ERROR;
     }
-    
     
     Method      m_method;
     std::string m_queue;

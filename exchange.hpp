@@ -1,8 +1,6 @@
 #pragma once 
 
 #include <iostream>
-#include <memory>
-#include <string>
 
 #include "queue.hpp"
 
@@ -17,7 +15,7 @@ namespace mq
       m_pQueue(std::move(q))
     { std::cout << __FUNCTION__ << "\n"; m_pQueue->link(); }
     
-    void publish(std::string& data) { std::cout << __FUNCTION__ << "\n"; m_pQueue->push(data); }
+    void publish(std::string& data) { m_pQueue->push(data); }
     
     std::string const& name() const { return m_name; }
     

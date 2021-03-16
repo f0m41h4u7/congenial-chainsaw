@@ -6,13 +6,13 @@
 #include "request.hpp"
 #include "server.hpp"
 
-#define DEFAULT_PORT 31337
-
 namespace mq
 {
-  constexpr std::string_view ok_response = "OK\n";
-  constexpr std::string_view parse_error = "Error: failed to parse request\n";
-  constexpr std::string_view queue_error = "Error: queue is already used\n";
+  const short unsigned int DEFAULT_PORT = 31337;
+  
+  const std::string ok_response = "OK\n";
+  const std::string parse_error = "Error: failed to parse request\n";
+  const std::string queue_error = "Error: wrong queue name\n";
   
   class Router
   {
@@ -26,12 +26,24 @@ namespace mq
       if(m_exchanges.contains(name))
       {
         auto exch_ptr = m_exchanges.at(name);
-        std::cout << exch_ptr.use_count() << " EXISTS\n";
         mlock.unlock();
         return exch_ptr;
       }
       m_exchanges[name] = std::make_shared<Exchange>(name, std::move(m_queueStorage.acquire_queue()));
       return m_exchanges[name];
+    }
+    
+    bool publish(std::string& q_name, std::string& data)
+    {
+      std::unique_lock<std::mutex> mlock(m_mutex);
+      if(m_exchanges.contains(q_name))
+      {
+        m_exchanges.at(q_name)->publish(data);
+        mlock.unlock();
+        return true;
+      }
+      mlock.unlock();
+      return false;
     }
     
     void run()
@@ -45,19 +57,28 @@ namespace mq
         {
           Request req;
           auto err = req.parseAndValidate(data);
-          if(err == ErrorCode::ERROR)
-            return parse_error.data();
+          if(err != ErrorCode::OK)
+            return parse_error;
           
           switch(req.m_method)
           {
-            case Method::QUEUE_CONNECT:
+            case Method::CONNECT:
             {
               conn->set_exchange(queue_connect(req.m_queue));
-              return ok_response.data();
+              return ok_response;
+            }
+            
+            case Method::PUBLISH:
+            {
+              auto q_name = conn->get_exchange()->name();
+              if(publish(q_name, req.m_data))
+                return ok_response;
+                
+              return queue_error;
             }
             
             default:
-              return ok_response.data();
+              return ok_response;
           }
         },
         [&](const std::string& name)

@@ -32,7 +32,7 @@ namespace mq
 
     void push(const std::string& item)
     {
-      std::cout << "QUEUE: " << item << "\n";
+      std::cout << __FUNCTION__ << "QUEUE: " << item << "\n";
       std::unique_lock<std::mutex> mlock(m_mutex);
       while (m_queue.size() >= BUFFER_SIZE)
         m_cv.wait(mlock);      
@@ -72,7 +72,6 @@ namespace mq
   public:
     QueueStorage()
     {
-      std::cout << __FUNCTION__ << "\n";
       for(std::size_t i = 0; i < SIZE; ++i)
       {
         auto q = new Queue();
