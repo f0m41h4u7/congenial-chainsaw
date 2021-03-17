@@ -33,7 +33,7 @@ namespace mq
       return m_exchanges[name];
     }
     
-    bool queue_exists(std::string& q_name)
+    bool exchange_exists(std::string& q_name)
     {
       std::unique_lock<std::mutex> mlock(m_mutex);
       if(m_exchanges.contains(q_name))
@@ -66,7 +66,7 @@ namespace mq
             case Method::PUBLISH:
             {
               auto q_name = conn->get_exchange()->name();
-              if(queue_exists(q_name))
+              if(exchange_exists(q_name))
               {
                 conn->get_exchange()->publish(req.m_data);
                 return ok_response;
@@ -77,7 +77,7 @@ namespace mq
             case Method::CONSUME:
             {
               auto q_name = conn->get_exchange()->name();
-              if(queue_exists(q_name))
+              if(exchange_exists(q_name))
               {
                 conn->get_exchange()->set_state(State::CONSUMING);
                 return ok_response;
