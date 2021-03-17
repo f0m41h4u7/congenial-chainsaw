@@ -51,10 +51,24 @@ namespace mq
             if (!ec)
             {
               auto res = m_handler(std::string{m_data, length}, shared_from_this());
+			        if(m_state == STATE::CONSUMING)
+				        consume();
               send(res);
             }
           });
     }
+	
+	void consume()
+	{
+	  auto self(shared_from_this());
+	  auto data = m_exch->receive();
+	  boost::asio::async_write(m_socket,
+                              boost::asio::buffer(data, data.size()),
+                              [this, self](boost::system::error_code ec, std::size_t)
+                              {
+                                if (!ec) consume();
+                              });
+	}
     
     void send(std::string_view sv)
     {
