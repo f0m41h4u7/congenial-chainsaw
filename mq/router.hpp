@@ -33,16 +33,11 @@ namespace mq
       return m_exchanges[name];
     }
     
-    bool publish(std::string& q_name, std::string& data)
+    bool queue_exists(std::string& q_name)
     {
       std::unique_lock<std::mutex> mlock(m_mutex);
       if(m_exchanges.contains(q_name))
-      {
-        m_exchanges.at(q_name)->publish(data);
-        mlock.unlock();
         return true;
-      }
-      mlock.unlock();
       return false;
     }
     
@@ -71,14 +66,25 @@ namespace mq
             case Method::PUBLISH:
             {
               auto q_name = conn->get_exchange()->name();
-              if(publish(q_name, req.m_data))
+              if(queue_exists(q_name))
+              {
+                conn->get_exchange()->publish(req.m_data);
                 return ok_response;
-                
+              }
               return queue_error;
             }
             
-            default:
-              return ok_response;
+            case Method::CONSUME:
+            {
+              auto q_name = conn->get_exchange()->name();
+              if(queue_exists(q_name))
+              {
+                conn->get_exchange()->set_state(State::CONSUMING);
+                return ok_response;
+              }
+              return queue_error;
+            }
+              
           }
         },
         [&](const std::string& name)
