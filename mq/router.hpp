@@ -65,6 +65,7 @@ namespace mq
             
             case Method::PUBLISH:
             {
+              std::cout << "method publish\n";
               auto q_name = conn->get_exchange()->name();
               if(exchange_exists(q_name))
               {
@@ -79,7 +80,7 @@ namespace mq
               auto q_name = conn->get_exchange()->name();
               if(exchange_exists(q_name))
               {
-                conn->get_exchange()->set_state(State::CONSUMING);
+                conn->set_state(State::CONSUMING);
                 return ok_response;
               }
               return queue_error;
@@ -99,7 +100,7 @@ namespace mq
   
   private:
     std::mutex                                       m_mutex;
-    QueueStorage<5>                                  m_queueStorage;
+    QueueStorage<3>                                  m_queueStorage;
     std::map<std::string, std::shared_ptr<Exchange>> m_exchanges;
   };
 

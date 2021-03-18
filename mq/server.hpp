@@ -4,6 +4,8 @@
 #include <functional>
 #include <string_view>
 
+#include "exchange.hpp"
+
 namespace mq 
 {
   using boost::asio::ip::tcp;
@@ -14,6 +16,8 @@ namespace mq
   
   using handler_t          = std::function<std::string(std::string_view, std::shared_ptr<Conn>)>;
   using exchange_deleter_t = std::function<void(const std::string&)>;
+  
+  enum State { DEFAULT, CONSUMING };
   
   class Conn : public std::enable_shared_from_this<Conn>
   {
@@ -29,58 +33,57 @@ namespace mq
       if(m_exch.use_count() <= 2)
         m_exch_deleter(m_exch->name());
     };
-
-    void receive() { handle(); }
     
     void set_exchange(std::shared_ptr<Exchange> exch) { m_exch = exch; }
     std::shared_ptr<Exchange> get_exchange() { return m_exch; }
+    
+    State state() const { return m_state; }
+    void set_state(State s) { m_state = s; }
+
+    void handle()
+    {
+      std::cout << __FUNCTION__ << "\n";
+      std::string data;
+      auto self(shared_from_this());
+
+      if(m_state == State::CONSUMING)
+      {
+        auto data = m_exch->receive();
+        std::cout << "has received\n";
+        boost::asio::async_write(m_socket,
+                                boost::asio::buffer(data, data.size()),
+                                [&](boost::system::error_code ec, std::size_t)
+                                {
+                                  if(!ec) handle();
+                                  else std::cerr << ec << std::endl;
+                                });
+      }
+      
+      else m_socket.async_read_some(boost::asio::buffer(m_data, MAX_PACKET_SIZE),
+        [this, self](boost::system::error_code ec, std::size_t length)
+        {
+          if (!ec)
+          {
+            auto res = m_handler(std::string{m_data, length}, shared_from_this());
+            boost::asio::async_write(m_socket,
+                                    boost::asio::buffer(res, res.size()),
+                                    [this, self](boost::system::error_code ec, std::size_t)
+                                    {
+                                      if(!ec) handle();
+                                      else std::cerr << ec << std::endl;
+                                    });
+          }
+        });
+    }
 
   private:
     Conn(tcp::socket socket, handler_t h, exchange_deleter_t d)
     : m_socket(std::move(socket)),
       m_handler(h),
       m_exch_deleter(d)
-    {}
-    
-    void handle()
-    {
-      auto self(shared_from_this());
-      m_socket.async_read_some(boost::asio::buffer(m_data, MAX_PACKET_SIZE),
-          [this, self](boost::system::error_code ec, std::size_t length)
-          {
-            if (!ec)
-            {
-              auto res = m_handler(std::string{m_data, length}, shared_from_this());
-			        if(m_state == STATE::CONSUMING)
-				        consume();
-              send(res);
-            }
-          });
-    }
-	
-	void consume()
-	{
-	  auto self(shared_from_this());
-	  auto data = m_exch->receive();
-	  boost::asio::async_write(m_socket,
-                              boost::asio::buffer(data, data.size()),
-                              [this, self](boost::system::error_code ec, std::size_t)
-                              {
-                                if (!ec) consume();
-                              });
-	}
-    
-    void send(std::string_view sv)
-    {
-      auto self(shared_from_this());
-      boost::asio::async_write(m_socket,
-                              boost::asio::buffer(sv.data(), sv.size()),
-                              [this, self](boost::system::error_code ec, std::size_t)
-                              {
-                                if (!ec) handle();
-                              });
-    }
+    {std::cout << __FUNCTION__ << "\n";}
 
+    State                     m_state{State::DEFAULT};
     tcp::socket               m_socket;
     char                      m_data[MAX_PACKET_SIZE];
     handler_t                 m_handler;
@@ -109,8 +112,8 @@ namespace mq
           if (!ec)
           {
             auto conn = Conn::create(std::move(socket), m_handler, m_exch_deleter);
-            conn->receive();
-          }
+            conn->handle();
+          } else std::cerr << ec << std::endl;
           listenAndServe();
         }
       );
