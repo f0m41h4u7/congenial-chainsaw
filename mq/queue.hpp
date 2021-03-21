@@ -18,21 +18,9 @@ namespace mq
     Queue(const Queue&) = delete;
     Queue& operator=(const Queue&) = delete;
 
-    void pop(std::string& item)
-    {
-      std::unique_lock<std::mutex> mlock(m_mutex);
-      while (m_queue.empty())
-        m_cv.wait(mlock);
-    
-      item = m_queue.front();
-      m_queue.pop();
-      mlock.unlock();
-      m_cv.notify_one();                      
-    }
-
     void push(const std::string& item)
     {
-      std::cout << __FUNCTION__ << "QUEUE: " << item << "\n";
+      std::cout << __FUNCTION__ << " QUEUE: " << item << "\n";
       std::unique_lock<std::mutex> mlock(m_mutex);
       while (m_queue.size() >= BUFFER_SIZE)
         m_cv.wait(mlock);      
@@ -43,15 +31,18 @@ namespace mq
 
     std::string pop()
     {
+      std::cout << __FUNCTION__ << "\n";
       std::unique_lock<std::mutex> mlock(m_mutex);
       while (m_queue.empty())
         m_cv.wait(mlock);
 
+      std::cout << "have waited\n";
       auto val = m_queue.front();
       m_queue.pop();
       mlock.unlock();
       m_cv.notify_one();
 
+      std::cout << "pop exit\n";
       return val;
     }
     
