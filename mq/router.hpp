@@ -65,7 +65,6 @@ namespace mq
             
             case Method::PUBLISH:
             {
-              std::cout << "method publish\n";
               auto q_name = conn->get_exchange()->name();
               if(exchange_exists(q_name))
               {

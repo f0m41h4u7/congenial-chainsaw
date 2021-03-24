@@ -29,7 +29,6 @@ namespace mq
     
     ErrorCode parseAndValidate(std::string_view req_sv)
     {
-      std::cout << __FUNCTION__ << "\n";
       if (m_parser.Parse(req_sv.data()).HasParseError())
         return ErrorCode::ERROR;
 

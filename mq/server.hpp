@@ -29,7 +29,7 @@ namespace mq
     
     ~Conn()
     {
-      std::cout << __FUNCTION__ << " " << m_exch.use_count() << "\n";
+      std::cout << __FUNCTION__ << "\n";
       if(m_exch.use_count() <= 2)
         m_exch_deleter(m_exch->name());
     };
@@ -39,6 +39,24 @@ namespace mq
     
     State state() const { return m_state; }
     void set_state(State s) { m_state = s; }
+    
+    void consume()
+    {
+      std::cout << __FUNCTION__ << "\n";
+      std::string data;
+      auto self(shared_from_this());
+      
+      while(true)
+      {
+        if(m_exch->receive(data))
+        boost::asio::async_write(m_socket,
+                                boost::asio::buffer(data, data.size()),
+                                [&](boost::system::error_code ec, std::size_t)
+                                {
+                                  if(!ec) std::cerr << ec << std::endl;
+                                });
+      }
+    }
 
     void handle()
     {
@@ -47,19 +65,9 @@ namespace mq
       auto self(shared_from_this());
 
       if(m_state == State::CONSUMING)
-      {
-        auto data = m_exch->receive();
-        std::cout << "has received\n";
-        boost::asio::async_write(m_socket,
-                                boost::asio::buffer(data, data.size()),
-                                [&](boost::system::error_code ec, std::size_t)
-                                {
-                                  if(!ec) handle();
-                                  else std::cerr << ec << std::endl;
-                                });
-      }
+        consume();
       
-      else m_socket.async_read_some(boost::asio::buffer(m_data, MAX_PACKET_SIZE),
+      m_socket.async_read_some(boost::asio::buffer(m_data, MAX_PACKET_SIZE),
         [this, self](boost::system::error_code ec, std::size_t length)
         {
           if (!ec)
@@ -81,7 +89,7 @@ namespace mq
     : m_socket(std::move(socket)),
       m_handler(h),
       m_exch_deleter(d)
-    {std::cout << __FUNCTION__ << "\n";}
+    {}
 
     State                     m_state{State::DEFAULT};
     tcp::socket               m_socket;
