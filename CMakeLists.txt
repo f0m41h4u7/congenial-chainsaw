@@ -14,6 +14,8 @@ target_include_directories(mq
     PRIVATE "${CMAKE_BINARY_DIR}" ${Boost_INCLUDE_DIRS} /usr/local/include/rapidjson
 )
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++2a -fcoroutines")
+
 target_link_libraries(mq ${CMAKE_THREAD_LIBS_INIT} boost_system pthread)
 
 target_compile_options(mq PRIVATE

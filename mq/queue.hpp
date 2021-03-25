@@ -1,63 +1,75 @@
 #pragma once
 
+#include <atomic>
 #include <boost/intrusive/list.hpp>
-#include <condition_variable>
-#include <mutex>
-#include <queue>
 
 namespace mq
 {
-  const int BUFFER_SIZE = 1024;
-  
-  class Queue : public boost::intrusive::list_base_hook<>
+  template <typename T>
+  class LFQueue : public boost::intrusive::list_base_hook<>
   {
   public:
-    Queue() = default;
-    ~Queue() = default;
-
-    Queue(const Queue&) = delete;
-    Queue& operator=(const Queue&) = delete;
-
-    void push(const std::string& item)
+    template <typename U>
+    struct Node
     {
-      std::cout << __FUNCTION__ << " QUEUE: " << item << "\n";
-      std::unique_lock<std::mutex> mlock(m_mutex);
-      while (m_queue.size() >= BUFFER_SIZE)
-        m_cv.wait(mlock);      
-      m_queue.push(item);
-      mlock.unlock();
-      m_cv.notify_one();                  
+      Node() = default;
+      Node(const U& d) 
+      : data(d),
+        next(nullptr)
+      {}
+      ~Node() = default;
+
+      U     data;
+      Node* next;
+      Node* prev;
+    };
+    
+    LFQueue()
+    {
+      auto node = new Node<T>();
+      m_tail = node;
+      m_head = node;
     }
+    ~LFQueue() = default;
 
-    std::string pop()
+    void push(const T& data)
     {
-      std::cout << __FUNCTION__ << "\n";
-      std::unique_lock<std::mutex> mlock(m_mutex);
-      while (m_queue.empty())
-        m_cv.wait(mlock);
+      auto newNode = new Node<T>(data);
+      newNode->next = m_tail.load(std::memory_order_relaxed);
+      m_tail.load(std::memory_order_relaxed)->prev = newNode;
 
-      std::cout << "have waited\n";
-      auto val = m_queue.front();
-      m_queue.pop();
-      mlock.unlock();
-      m_cv.notify_one();
-
-      std::cout << "pop exit\n";
-      return val;
+      while(
+        !m_tail.compare_exchange_weak(
+          newNode->next,
+          newNode,
+          std::memory_order_release,
+          std::memory_order_relaxed
+        )
+      );
+    }
+    
+    bool pop(T& result)
+    {
+      auto head = m_head.load();
+      if (!head)
+        return false;
+      while (!m_head.compare_exchange_weak(head, head->prev));
+      result = head->data;
+      delete head;
+      return true;
     }
     
     bool is_linked() { return m_is_linked; }
-    void link() { std::cout << __FUNCTION__ << "\n"; m_is_linked = true; }
-    void unlink() { std::cout << __FUNCTION__ << "\n"; m_is_linked = false; }
-
+    void link() { m_is_linked = true; }
+    void unlink() { m_is_linked = false; }
+    
   private:
-    bool                    m_is_linked{false};
-    std::queue<std::string> m_queue;
-    std::mutex              m_mutex;
-    std::condition_variable m_cv;
+    std::atomic<Node<T>*> m_head{nullptr};
+    std::atomic<Node<T>*> m_tail{nullptr};
+    bool                  m_is_linked{false};
   };
   
-  template<std::size_t SIZE=10>
+  template<std::size_t SIZE=5>
   class QueueStorage
   {
   public:
@@ -65,7 +77,7 @@ namespace mq
     {
       for(std::size_t i = 0; i < SIZE; ++i)
       {
-        auto q = new Queue();
+        auto q = new LFQueue<std::string>();
         m_queues.push_back(*q);
       }
     }
@@ -74,20 +86,19 @@ namespace mq
     QueueStorage(const QueueStorage&) = delete;
     QueueStorage& operator=(const QueueStorage&) = delete;
     
-    Queue* acquire_queue()
+    LFQueue<std::string>* acquire_queue()
     {
-      std::cout << __FUNCTION__ << "\n";
       for(auto& q : m_queues)
         if(!q.is_linked())
           return &q;
-      auto q = new Queue();
+      auto q = new LFQueue<std::string>();
       m_queues.push_back(*q);
       return q;
     }
     
   private:
     boost::intrusive::list<
-      Queue
+      LFQueue<std::string>
     > m_queues;
   };
   
