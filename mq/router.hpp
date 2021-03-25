@@ -50,7 +50,7 @@ namespace mq
       Server s(
         ctx,
         endpoint,
-        [&](std::string_view data, std::shared_ptr<Session> conn) -> Message&
+        [&](std::string_view data, std::shared_ptr<Session> session) -> Message&
         {
           Request req;
           auto err = req.parseAndValidate(data);
@@ -61,17 +61,17 @@ namespace mq
           {
             case Method::CONNECT:
             {
-              conn->set_exchange(queue_connect(req.m_queue));
+              session->set_exchange(queue_connect(req.m_queue));
               return m_OK_msg;
             }
             
             case Method::PUBLISH:
             {
-              auto q_name = conn->get_exchange()->name();
+              auto q_name = session->get_exchange()->name();
               if(exchange_exists(q_name))
               {
-                conn->get_exchange()->publish(req.m_data);
-                conn->ref_storage().deliver(Message{req.m_data}, q_name);
+                session->get_exchange()->publish(req.m_data);
+                session->ref_storage().deliver(Message{req.m_data, q_name});
                 return m_OK_msg;
               }
               return m_queue_err_msg;
@@ -79,10 +79,10 @@ namespace mq
             
             case Method::CONSUME:
             {
-              auto q_name = conn->get_exchange()->name();
+              auto q_name = session->get_exchange()->name();
               if(exchange_exists(q_name))
               {
-                conn->set_state(State::CONSUMING);
+                session->set_state(State::CONSUMING);
                 return m_OK_msg;
               }
               return m_queue_err_msg;

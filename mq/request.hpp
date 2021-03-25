@@ -32,6 +32,9 @@ namespace mq
     ~Message() = default;
     
     Message(std::string_view sv) { set_message(sv); }
+    Message(std::string_view sv, std::string& q_name)
+    : m_queue_name(q_name)
+    { set_message(sv); }
 
     const char* data() const { return m_data; }
     char* data() { return m_data; }
@@ -44,6 +47,12 @@ namespace mq
     std::size_t body_length() const { return m_body_length;}
     
     void clear() { memset(&m_data[0], 0, sizeof(m_data)); }
+    
+    void set_delivered() { m_is_delivered = true; }
+    bool is_delivered() const { return m_is_delivered; }
+    
+    std::string const& queue_name() { return m_queue_name; }
+    void queue_name(std::string& name) { m_queue_name = name; }
     
     void set_message(std::string_view sv)
     {
@@ -77,6 +86,8 @@ namespace mq
   private:
     char        m_data[header_length + max_body_length];
     std::size_t m_body_length{0};
+    bool        m_is_delivered{false};
+    std::string m_queue_name;
   };
   
   struct Request

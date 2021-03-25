@@ -40,20 +40,55 @@ namespace mq
     void add(std::shared_ptr<ISession> s)   { m_sessions.insert(s); }
     void erase(std::shared_ptr<ISession> s) { m_sessions.erase(s); }
     
-    void deliver(const Message& msg, const std::string& queue)
+    void deliver(const Message& msg)
     {
       m_to_write.push_back(msg);
       while (m_to_write.size() > max_recent_msgs)
         m_to_write.pop_front();
 
-      for (auto& s: m_sessions)
+      for(auto& s: m_sessions)
       {
-        if( (s->state() == State::CONSUMING) && (s->queue_name() == queue) )
-          s->deliver(msg);
+        if(s->state() == State::CONSUMING)
+        {
+          for(auto& m : m_to_write)
+          {
+            if(s->queue_name() == m.queue_name())
+            {
+              s->deliver(m);
+              m.set_delivered();
+            }
+          }
+        }
       }
+      clean_delivered();
+    }
+    
+    void deliver_previous(std::shared_ptr<ISession> s)
+    {
+      for(auto& m : m_to_write)
+      {
+        if(s->queue_name() == m.queue_name())
+        {
+          s->deliver(m);
+          m.set_delivered();
+        }
+      }
+      clean_delivered();
     }
     
   private:
+    
+    void clean_delivered()
+    {
+      for(auto it = m_to_write.begin(); it != m_to_write.end();)
+      {
+        if((*it).is_delivered())
+          it = m_to_write.erase(it);
+        else
+          ++it;
+      }
+    }
+    
     std::set<std::shared_ptr<ISession>> m_sessions;
     std::deque<Message>                 m_to_write;
   };
