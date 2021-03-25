@@ -8,7 +8,17 @@ $ cmake ..
 $ make
 ```
 
-### Commands
+Default server port is `31337`. 
+
+## Protocol
+```
+0           4                body_size
++-----------+--------------------+
+| body_size |        body        |
++-----------+--------------------+
+```
+Body is json message with one of the methods:
+
 * Connect to queue:
 ```
 {"method":"CONNECT", "queue":"queue_name"}
@@ -19,5 +29,5 @@ $ make
 ```
 * Read from queue:
 ```
-{"method":"CONSUME", "queue":"queue_name"}
+{"method":"CONSUME"}
 ```
