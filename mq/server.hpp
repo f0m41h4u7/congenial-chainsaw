@@ -164,6 +164,9 @@ namespace mq
                                       {
                                         if(ec) m_sessionStorage.erase(shared_from_this());
                                       });
+              if(m_state == State::CONSUMING)
+                m_sessionStorage.deliver_previous(self);
+              
               m_message.clear();
               do_read_header();
             }
