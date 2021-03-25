@@ -2,9 +2,8 @@
 
 #include <map>
 
-#include "exchange.hpp"
-#include "request.hpp"
-#include "server.hpp"
+#include "Server.hpp"
+#include "Request.hpp"
 
 namespace mq
 {

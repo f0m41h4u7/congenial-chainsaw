@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "queue.hpp"
+#include "Queue.hpp"
 
 namespace mq
 {
