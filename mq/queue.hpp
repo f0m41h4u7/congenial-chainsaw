@@ -60,8 +60,8 @@ namespace mq
     }
     
     bool is_linked() { return m_is_linked; }
-    void link() { std::cout << __FUNCTION__ << "\n"; m_is_linked = true; }
-    void unlink() { std::cout << __FUNCTION__ << "\n"; m_is_linked = false; }
+    void link() { m_is_linked = true; }
+    void unlink() { m_is_linked = false; }
     
   private:
     std::atomic<Node<T>*> m_head{nullptr};
@@ -88,7 +88,6 @@ namespace mq
     
     LFQueue<std::string>* acquire_queue()
     {
-      std::cout << __FUNCTION__ << "\n";
       for(auto& q : m_queues)
         if(!q.is_linked())
           return &q;
