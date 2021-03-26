@@ -42,6 +42,7 @@ namespace mq
     
     void deliver(const Message& msg)
     {
+      std::unique_lock<std::mutex> mlock(m_mutex);
       m_to_write.push_back(msg);
       while (m_to_write.size() > max_recent_msgs)
         m_to_write.pop_front();
@@ -60,11 +61,13 @@ namespace mq
           }
         }
       }
+      mlock.unlock();
       clean_delivered();
     }
     
     void deliver_previous(std::shared_ptr<ISession> s)
     {
+      std::unique_lock<std::mutex> mlock(m_mutex);
       for(auto& m : m_to_write)
       {
         if(s->queue_name() == m.queue_name())
@@ -73,6 +76,7 @@ namespace mq
           m.set_delivered();
         }
       }
+      mlock.unlock();
       clean_delivered();
     }
     
@@ -80,6 +84,7 @@ namespace mq
     
     void clean_delivered()
     {
+      std::unique_lock<std::mutex> mlock(m_mutex);
       for(auto it = m_to_write.begin(); it != m_to_write.end();)
       {
         if((*it).is_delivered())
@@ -89,6 +94,7 @@ namespace mq
       }
     }
     
+    std::mutex                          m_mutex;
     std::set<std::shared_ptr<ISession>> m_sessions;
     std::deque<Message>                 m_to_write;
   };
