@@ -1,5 +1,7 @@
 # Message exchange service
 
+![Build status](https://github.com/f0m41h4u7/message-broker/actions/workflows/ci.yaml/badge.svg)
+
 ### Build
 ```shell
 $ mkdir build
@@ -21,11 +23,11 @@ Body is json message with one of the methods:
 
 * Connect to queue:
 ```
-{"method":"CONNECT", "queue":"queue_name"}
+{"method":"CONNECT","queue":"queue_name"}
 ```
 * Write data to queue:
 ```
-{"method":"PUBLISH", "data":"some data to publish"}
+{"method":"PUBLISH","data":"some data to publish"}
 ```
 * Read from queue:
 ```
